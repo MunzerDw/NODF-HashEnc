@@ -106,7 +106,23 @@ tensorboard --logdir output
 
 ## Citation
 
-If you found our work helpful, please kindly cite our paper:
+If you find our work helpful, please kindly cite the original NODF paper:
+
+```shell
+@article{consagra2024nodf,
+	title = {Neural orientation distribution fields for estimation and uncertainty quantification in diffusion MRI},
+	journal = {Medical Image Analysis},
+	volume = {93},
+	year = {2024},
+	issn = {1361-8415},
+	doi = {https://doi.org/10.1016/j.media.2024.103105},
+	url = {https://www.sciencedirect.com/science/article/pii/S1361841524000306},
+	author = {William Consagra and Lipeng Ning and Yogesh Rathi},
+	keywords = {Uncertainty quantification, Deep learning, Neural field, Diffusion MRI, Functional data analysis},
+}
+```
+
+and ours:
 
 ```shell
 TODO
