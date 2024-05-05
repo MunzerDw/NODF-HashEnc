@@ -153,11 +153,11 @@ class FVRF(torch.nn.Module):
         
         Ik = torch.eye(self.K - 1).to(device) # (K - 1, K - 1)
         if self.model.args.use_baseline:
-            I_rig = torch.eye(vec_W_post_cov.shape[0]).to(device) * 1e-10
+            I_rig = torch.eye(vec_W_post_cov.shape[0]).to(device) * 1e-9
             vec_W_post_cov = vec_W_post_cov + I_rig
 
         posterior_field = MultivariateNormal(vec_W_post_mean.squeeze(-1), vec_W_post_cov)
-        samples = posterior_field.sample((npost_samps,)).T # (r * (K - 1), K - 1)
+        samples = posterior_field.sample((npost_samps,)).T # (r * (K - 1), S)
 
         # post_samples_lst = []
         # for iv in tqdm(range(Nv)):  # TODO: optimize this calculation
@@ -187,6 +187,61 @@ class FVRF(torch.nn.Module):
         C_mu_tensor_posterior_field = MultivariateNormal(C_mu_tensor_means, C_mu_tensor_covs)
         C_mu_tensor_samples = C_mu_tensor_posterior_field.sample((npost_samps,))
         C_mu_tensor_samples = torch.swapaxes(C_mu_tensor_samples, 0, 1) # (N X S X 1)
+
+        post_samples_chat = torch.cat((C_mu_tensor_samples, Post_samples), dim=-1)
+        post_samples_chat = torch.swapaxes(post_samples_chat, 0, 1)
+
+        return post_samples_chat
+    
+    def evaluate_posterior_W_mean(self, mask):
+        """
+        Use the posterior W mean to evaluate the ODF coefficients
+        
+        mask: mask of region of interest, torch.Tensor (X x Y x Z)
+        
+        returns:
+            post_samples_chat: torch.Tensor (npost_samps, N, K), 
+                generate ODF coefficients from posterior field for the region of interest
+        """
+        
+        # get coords region of interest
+        mask_full = nib.load(self.args.mask_file).get_fdata().astype(bool)  # X x Y x Z
+        coords_3d = torch.zeros((*mask_full.shape, self.coords.shape[-1]))
+        coords_3d[mask_full] = self.coords
+        coords = coords_3d[mask]
+        # get X region of interest
+        Xi_evals_3d = torch.zeros((*mask_full.shape, self.X.shape[-1]))
+        Xi_evals_3d[mask_full] = self.X
+        Xi_evals = Xi_evals_3d[mask].T # (r, N)
+
+        # get chat region of interest
+        chat_3d = torch.zeros((*mask_full.shape, self.chat.shape[-1]))
+        chat_3d[mask_full] = self.chat
+        chat = chat_3d[mask]
+        
+        Nv = coords.shape[0]
+        device = torch.device(coords.device)
+        
+        vec_W_post_mean = self.vec_W_post_mean.to(device)
+        vec_W_post_cov = self.vec_W_post_cov.to(device)
+        
+        Ik = torch.eye(self.K - 1).to(device) # (K - 1, K - 1)
+        if self.model.args.use_baseline:
+            I_rig = torch.eye(vec_W_post_cov.shape[0]).to(device) * 1e-9
+            vec_W_post_cov = vec_W_post_cov + I_rig
+
+        samples = vec_W_post_mean
+        
+        XV_I = torch.kron(Xi_evals.T, Ik) # (S, r * (K - 1))
+        Post_samples = XV_I @ samples # (N * (K - 1), S)
+        Post_samples = Post_samples.reshape(Xi_evals.shape[1], Ik.shape[0], Post_samples.shape[-1]) # (N, (K - 1), S)
+        
+        Post_samples = torch.swapaxes(Post_samples, 1, 2) # (N, S, K - 1)
+
+        C_mu_tensor_means = chat[:, 0:1]
+        
+        # select mean C_mu_tensor
+        C_mu_tensor_samples = C_mu_tensor_means.unsqueeze(-1).repeat(1, 1, 1)
 
         post_samples_chat = torch.cat((C_mu_tensor_samples, Post_samples), dim=-1)
         post_samples_chat = torch.swapaxes(post_samples_chat, 0, 1)
@@ -226,11 +281,11 @@ class FVRF(torch.nn.Module):
             vec_W_post_cov = torch.load(cov_path)
             return vec_W_post_mean, vec_W_post_cov
         
-        chat = self.chat
-        Xi_v = self.X.T
+        chat = self.chat # (N, K)
+        Xi_v = self.X.T # (r, N)
         
         C_mu_tensor = chat[:, 0:1]
-        signal_centered = self.signal.T - self.Phi_tensor[:, 0:1] @ C_mu_tensor.T
+        signal_centered = self.signal.T - self.Phi_tensor[:, 0:1] @ C_mu_tensor.T # (M, N)
 
         K = self.Phi_tensor.shape[1]
         r = Xi_v.shape[0]
@@ -239,11 +294,11 @@ class FVRF(torch.nn.Module):
             (self.sigma2_e / self.sigma2_w)
             * torch.kron(torch.eye(r), self.R_tensor[1:, 1:])
             + torch.kron(Xi_v @ Xi_v.T, self.Phi_tensor[:, 1:].T @ self.Phi_tensor[:, 1:K])
-        )
-        Lambda_inv = torch.linalg.inv(Lambda)
+        ) # (r * (K - 1), r * (K - 1))
+        Lambda_inv = torch.linalg.inv(Lambda) # (r * (K - 1), r * (K - 1))
 
-        pyz_prod = (self.Phi_tensor[:, 1:K].T @ signal_centered @ Xi_v.T).T.reshape(-1, 1)
-        post_mean_w = (1 / self.sigma2_e) * Lambda_inv @ pyz_prod
+        pyz_prod = (self.Phi_tensor[:, 1:K].T @ signal_centered @ Xi_v.T).T.reshape(-1, 1) # (r * (K - 1), 1)
+        post_mean_w = (1 / self.sigma2_e) * Lambda_inv @ pyz_prod # (r * (K - 1), 1)
         
         # save posterior
         torch.save(
@@ -317,14 +372,15 @@ class FVRF(torch.nn.Module):
 
         X = torch.cat(predictions)
         
-        torch.save(
-            X.cpu().detach(),
-            X_path,
-        )
-        print(
-            f"Saved basis_pointwise_estimates.pt to ",
-            X_path,
-        )
+        if not self.model.args.use_baseline:
+            torch.save(
+                X.cpu().detach(),
+                X_path,
+            )
+            print(
+                f"Saved basis_pointwise_estimates.pt to ",
+                X_path,
+            )
         
         return X
 

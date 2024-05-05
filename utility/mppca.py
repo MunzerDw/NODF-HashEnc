@@ -2,15 +2,11 @@ from utility.utility import get_args
 from data.data_module import DataModule
 import numpy as np
 import torch
-from models.nodf import NODF
 
-import argparse
 import nibabel as nib
 import os
 from callback import *
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
 from dipy.denoise.localpca import mppca
 
 

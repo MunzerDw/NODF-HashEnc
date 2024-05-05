@@ -23,8 +23,6 @@ from dipy.data import get_sphere
 import nibabel as nib
 import numpy as np
 
-from image_similarity_measures.quality_metrics import fsim
-
 
 class Evaluation:
 
@@ -76,11 +74,20 @@ class Evaluation:
         errors = torch.from_numpy(errors).float().to(self.device)
         errors_median = torch.median(errors)
         print(f"ODF L2-Norm Median Error: {errors_median}")
+        
+        mask_full = nib.load(self.args.mask_file).get_fdata().astype(bool)  # X x Y x Z
+        odfs_l2_norm_error_img = torch.zeros(mask_full.shape).to(self.device)  # X x Y x Z
+        odfs_l2_norm_error_img[mask_full] = errors
 
         if self.save_files:
             torch.save(
                 errors.cpu().detach(),
                 os.path.join(self.output_path, f"odfs_l2_norm_error_values.pt"),
+            )
+            save_nif(
+                args,
+                odfs_l2_norm_error_img.cpu().detach().numpy(),
+                os.path.join(self.output_path, f"odfs_l2_norm_error_map.nii.gz"),
             )
 
         return errors_median, errors
@@ -255,7 +262,8 @@ class Evaluation:
     
     def uq(self):
         """
-        Get the FSIM score for the GFA and DTI images
+        Calculates the posterior, samples it, and calculates the coefficient of variation
+        for GFA and its correlation to ODF normalized L2 error
 
         returns: torch.Tensor (S, N, K); S sampled ODF coefficients
         """
@@ -275,14 +283,18 @@ class Evaluation:
         
         # get roi
         mask = get_mask(args)
-        mask[:168] = False
-        mask[169:] = False
+        # mask[:168] = False
+        # mask[169:] = False
+        # mask[:, 126:] = False
+        # mask[:, :, 102:] = False
+        # mask[:, :, :90] = False
+        # mask[:, :, 91:] = False
         # sagittal
-        mask[:, :74] = False
-        mask[:, 88:] = False
-        # coronal
-        mask[:, :, :67] = False
-        mask[:, :, 85:] = False
+        # mask[:, :74] = False
+        # mask[:, 88:] = False
+        # # coronal
+        # mask[:, :, :67] = False
+        # mask[:, :, 85:] = False
         num_points = mask[mask].shape[0]
         
         # generate posterior samples
@@ -306,8 +318,6 @@ class Evaluation:
         post_samples_gfa_uq[mask] = (
             torch.from_numpy(post_samples_gfa_error_flat).float()
         )
-        # TODO: save W mean and cov
-        # TODO: add NODF journal link, add data link
         # save nifiti
         if self.save_files:
             save_nif(
@@ -315,6 +325,15 @@ class Evaluation:
                 post_samples_gfa_uq.cpu().detach().numpy(),
                 os.path.join(self.output_path, f"post_{npost_samps}_samples_gfa_uq.nii.gz"),
             )
+            
+        # calculate correlation to ODF normalized L2 error
+        odf_errors = torch.load(os.path.join(self.output_path, f"odfs_l2_norm_error_values.pt"))
+        odf_errors_img = torch.zeros(mask.shape)
+        odf_errors_img[mask_full] = odf_errors
+        odf_errors = odf_errors_img[mask]
+        
+        corr = np.corrcoef(post_samples_gfa_uq[mask], odf_errors)[0][1]
+        print(f"Correlation of GFA uncertainty to ODF normalized L2 error: {corr}")
 
         return post_samples_chat
 
@@ -327,6 +346,8 @@ class Evaluation:
 
         returns: float, torch.Tensor (F)
         """
+        from image_similarity_measures.quality_metrics import fsim
+        
         # remove empty spaces
         gt_imgs = gt_imgs[50:240, 39:263, 0:178]
         pred_imgs = pred_imgs[50:240, 39:263, 0:178]

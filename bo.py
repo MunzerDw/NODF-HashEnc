@@ -27,11 +27,9 @@ def resample_data(Obs, batch_size, train_prop=0.8):
     Y_test = Obs.signal[test_indices, :]
     V_train = Obs.coords[train_indices, :]
     V_test = Obs.coords[test_indices, :]
-    noise_train = Obs.noise_precision[train_indices]
-    noise_test = Obs.noise_precision[test_indices]
 
-    O_train = ObservationPoints(V_train, Y_train, noise_train)
-    O_test = ObservationPoints(V_test, Y_test, noise_test)
+    O_train = ObservationPoints(V_train, Y_train)
+    O_test = ObservationPoints(V_test, Y_test)
 
     dataloader_train = DataLoader(
         O_train,
@@ -69,8 +67,7 @@ def _evaluate(
     if "sigma2_w" in parameterization:
         args.sigma2_w = parameterization["sigma2_w"]
 
-    Phi_tensor, R_tensor = get_phi_r_tensors(args)
-    field_model = NODF(args, Phi_tensor=Phi_tensor, R_tensor=R_tensor)
+    field_model = NODF(args)
 
     ## estimate parameters
     trainer = algorithm()
@@ -88,7 +85,7 @@ def _evaluate(
     C_hat_test = field_model({"coords": coords_test})
 
     loss = float(
-        ((Y_tensor_test - Phi_tensor @ C_hat_test.T) ** 2).sum().cpu().detach().numpy()
+        ((Y_tensor_test - Phi_tensor @ C_hat_test.T) ** 2).mean().cpu().detach().numpy()
     )
 
     return loss
@@ -204,11 +201,11 @@ def main(args):
         #     "type": "range",
         #     "bounds": [1e-8, 1e-4],
         # },
-        {
-            "name": "sigma2_w",
-            "type": "range",
-            "bounds": [1e-5, 1e5],
-        },
+        # {
+        #     "name": "sigma2_w",
+        #     "type": "range",
+        #     "bounds": [1e-5, 1e5],
+        # },
     ]
 
     print("==> initializing data ...")
@@ -220,7 +217,7 @@ def main(args):
         pl.Trainer,
         logger=False,
         accelerator="auto",
-        max_epochs=150,
+        max_epochs=200,
         devices="1",
         enable_checkpointing=False,
     )

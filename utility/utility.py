@@ -521,13 +521,13 @@ def get_args(cmd: bool = True):
                 "--out_folder",
                 "output",
                 "--img_file",
-                "data/subjects/processedDWI_session1_subset01/dwi_all.nii.gz",
+                "data/signal.nii.gz",
                 "--mask_file",
-                "data/subjects/processedDWI_session1_subset01/flipped_b0_brain_mask.nii.gz",
+                "data/mask.nii.gz",
                 "--bval_file",
-                "data/subjects/processedDWI_session1_subset01/flip_x.bval",
+                "data/bval.txt",
                 "--bvec_file",
-                "data/subjects/processedDWI_session1_subset01/flip_x.bvec",
+                "data/bvec.txt",
             ]
         )
 

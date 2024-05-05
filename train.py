@@ -71,8 +71,7 @@ def main(args: dict):
     if args.ckpt_path:
         model = NODF.load_from_checkpoint(args.ckpt_path, map_location="cpu")
     else:
-        Phi_tensor, R_tensor = get_phi_r_tensors(args)
-        model = NODF(args, Phi_tensor=Phi_tensor, R_tensor=R_tensor)
+        model = NODF(args)
 
     print("==> start training ...")
     trainer.fit(model=model, datamodule=data_module, ckpt_path=args.ckpt_path)

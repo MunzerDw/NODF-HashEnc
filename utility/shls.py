@@ -5,7 +5,6 @@ from dipy.reconst.shm import (
 import nibabel as nib
 
 import os
-from data.data_module import DataModule
 
 from utility.utility import (
     cart2sphere,
