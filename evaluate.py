@@ -241,8 +241,8 @@ class Evaluation:
             print(f"FSIM median DTI: {dti_fsim}")
 
         # gt data
-        gt_gfa = nib.load("data/subjects/session_average/gfa.nii.gz").get_fdata()
-        gt_dti = nib.load("data/subjects/session_average/tensor_rgb.nii.gz").get_fdata()
+        gt_gfa = nib.load(args.gt_gfa_path).get_fdata()
+        gt_dti = nib.load(args.gt_dti_path).get_fdata()
 
         # load data
         gfa_img = nib.load(os.path.join(self.output_path, "gfa.nii.gz")).get_fdata()
@@ -467,9 +467,9 @@ class Evaluation:
 def main(args):
     eval = Evaluation(args)
 
-    eval.get_gfa()
+    # eval.get_gfa()
     # eval.get_dti()
-    # eval.get_fsim()
+    eval.get_fsim()
     # eval.uq()
     # eval.get_odf_error()
     # TODO: Tractogrophy

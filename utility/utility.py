@@ -283,6 +283,22 @@ def get_args(cmd: bool = True):
     )
 
     parser.add_argument(
+        "--gt_gfa_path",
+        action="store",
+        default="data/gt_gfa.nii.gz",
+        type=str,
+        help="Path to ground truth GFA image.",
+    )
+
+    parser.add_argument(
+        "--gt_dti_path",
+        action="store",
+        default="data/gt_dti.nii.gz",
+        type=str,
+        help="Path to ground truth DTI image.",
+    )
+
+    parser.add_argument(
         "--experiment_name",
         action="store",
         type=str,

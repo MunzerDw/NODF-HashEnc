@@ -21,3 +21,7 @@ data/bvec.txt
 data/bval.txt
 data/mask.nii.gz
 data/signal.nii.gz
+data/train_signal_noise.pt
+data/gt_odfs.pt
+data/gt_gfa.nii.gz
+data/gt_dti.nii.gz
