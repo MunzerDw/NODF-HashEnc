@@ -43,6 +43,7 @@ You require the following files:
 - bval.txt: b-values written in one line separated by a space
 - bvec.txt: b-vectors each written vertically
 - mask.nii.gz: (X, Y, Z) [0,1] mask to select the whole brain region/ region of interest
+- (optional) gt_odfs.pt: (N, K) torch tensor of ground truth ODFs used to calculate GFA and ODF L2 errors. N is the number of all voxels of the brain (non-void voxels)
 
 Put these files under the <code>data</code> folder.
 

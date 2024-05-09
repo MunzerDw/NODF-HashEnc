@@ -275,6 +275,14 @@ def get_args(cmd: bool = True):
     )
 
     parser.add_argument(
+        "--gt_odfs_path",
+        action="store",
+        default="data/gt_odfs.pt",
+        type=str,
+        help="Path to ground truth ODF coefficients file.",
+    )
+
+    parser.add_argument(
         "--experiment_name",
         action="store",
         type=str,

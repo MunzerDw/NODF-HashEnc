@@ -46,7 +46,7 @@ class Evaluation:
 
         self.odfs = self._get_odfs()  # X x Y x Z x K
         self.gt_odfs = self._get_odfs(
-            "output/ground_truth/hashenc/prediction/pointwise_estimates.pt"
+            args.gt_odfs_path
         )  # X x Y x Z x K
 
         input_path = args.predictions_path
@@ -62,6 +62,11 @@ class Evaluation:
             errors_median: torch.Tensor (1),
             errors: torch.Tensor (X x Y x Z)
         """
+        
+        if self.gt_odfs is None:
+            print("Can't calculate ODF error without ground truth ODFs")
+            return
+        
         mask = get_mask(args)
 
         odfs_flat = self.odfs[mask].cpu().detach().numpy()
@@ -74,9 +79,11 @@ class Evaluation:
         errors = torch.from_numpy(errors).float().to(self.device)
         errors_median = torch.median(errors)
         print(f"ODF L2-Norm Median Error: {errors_median}")
-        
+
         mask_full = nib.load(self.args.mask_file).get_fdata().astype(bool)  # X x Y x Z
-        odfs_l2_norm_error_img = torch.zeros(mask_full.shape).to(self.device)  # X x Y x Z
+        odfs_l2_norm_error_img = torch.zeros(mask_full.shape).to(
+            self.device
+        )  # X x Y x Z
         odfs_l2_norm_error_img[mask_full] = errors
 
         if self.save_files:
@@ -103,18 +110,20 @@ class Evaluation:
         mask_full = nib.load(self.args.mask_file).get_fdata().astype(bool)  # X x Y x Z
 
         odfs = self.odfs  # X x Y x Z x K
-        gt_odfs = self.gt_odfs  # X x Y x Z x K
 
         B = self._get_B()  # K x P
+        
+        if self.gt_odfs is not None:
+            gt_odfs = self.gt_odfs  # X x Y x Z x K
 
-        gt_signal_gfa_flat = gfa((gt_odfs[mask] @ B).cpu().detach().numpy())  # N
-        signal_gfa_flat = gfa((odfs[mask] @ B).cpu().detach().numpy())  # N
+            gt_signal_gfa_flat = gfa((gt_odfs[mask] @ B).cpu().detach().numpy())  # N
+            signal_gfa_flat = gfa((odfs[mask] @ B).cpu().detach().numpy())  # N
 
-        gfa_diff = signal_gfa_flat - gt_signal_gfa_flat  # N
-        gfa_abs_diff = np.absolute(gfa_diff)  # N
+            gfa_diff = signal_gfa_flat - gt_signal_gfa_flat  # N
+            gfa_abs_diff = np.absolute(gfa_diff)  # N
 
-        abs_errors_median = np.median(gfa_abs_diff)  # 1
-        print(f"GFA Median Absolute Error: {abs_errors_median}")
+            abs_errors_median = np.median(gfa_abs_diff)  # 1
+            print(f"GFA Median Absolute Error: {abs_errors_median}")
 
         gfa_img = torch.zeros(odfs.shape[:-1]).to(self.device)  # X x Y x Z
         signal_gfa_flat = gfa((odfs[mask_full] @ B).cpu().detach().numpy())  # N
@@ -219,7 +228,7 @@ class Evaluation:
 
         returns: (float, np.array), (float, np.array)
         """
-        
+
         gfa_fsim_values_path = os.path.join(self.output_path, f"gfa_fsim.pt")
         dti_fsim_values_path = os.path.join(self.output_path, f"dti_fsim_values.pt")
         if os.path.exists(gfa_fsim_values_path):
@@ -230,7 +239,6 @@ class Evaluation:
             dti_fsim_values = torch.load(dti_fsim_values_path)
             dti_fsim = torch.median(dti_fsim_values)
             print(f"FSIM median DTI: {dti_fsim}")
-        
 
         # gt data
         gt_gfa = nib.load("data/subjects/session_average/gfa.nii.gz").get_fdata()
@@ -249,17 +257,14 @@ class Evaluation:
 
         # save nifiti
         if self.save_files:
-            torch.save(
-                gfa_fsim_values.cpu().detach(),
-                gfa_fsim_values_path
-            )
+            torch.save(gfa_fsim_values.cpu().detach(), gfa_fsim_values_path)
             torch.save(
                 dti_fsim_values.cpu().detach(),
                 os.path.join(self.output_path, f"dti_fsim_values.pt"),
             )
 
         return (gfa_fsim, gfa_fsim_values), (dti_fsim, dti_fsim_values)
-    
+
     def uq(self):
         """
         Calculates the posterior, samples it, and calculates the coefficient of variation
@@ -267,20 +272,22 @@ class Evaluation:
 
         returns: torch.Tensor (S, N, K); S sampled ODF coefficients
         """
-        
+
         if not args.ckpt_path:
-            print("Can't perform uncertainty quantification without a model checkpoint path (args.ckpt_path)")
+            print(
+                "Can't perform uncertainty quantification without a model checkpoint path (args.ckpt_path)"
+            )
             return
-        
+
         ckpt_path = args.ckpt_path
         print(f"Using checkpoint at: {ckpt_path}")
-        
+
         start_time = time.time()
         posterior = FVRF(args)
         end_time = time.time()
         time_in_sec = round(end_time - start_time, 2)
         print(f"Calculating W posterior: {time_in_sec} seconds")
-        
+
         # get roi
         mask = get_mask(args)
         # mask[:168] = False
@@ -296,42 +303,52 @@ class Evaluation:
         # mask[:, :, :67] = False
         # mask[:, :, 85:] = False
         num_points = mask[mask].shape[0]
-        
+
         # generate posterior samples
         npost_samps = 250
         start_time = time.time()
-        post_samples_chat = posterior.sample_posterior_W(mask, npost_samps=npost_samps) # (S, N, K)
+        post_samples_chat = posterior.sample_posterior_pointwise(mask, npost_samps=npost_samps) # (S, N, K)
         post_samples_chat = post_samples_chat.to(self.device)
         end_time = time.time()
         time_in_sec = round(end_time - start_time, 2)
-        print(f"Sampling posterior time: {time_in_sec} seconds | {num_points} points | {npost_samps} samples")
-        
+        print(
+            f"Sampling posterior time: {time_in_sec} seconds | {num_points} points | {npost_samps} samples"
+        )
+
         # calculate uncertainty maps for different measures:
         # GFA
         mask_full = nib.load(args.mask_file).get_fdata().astype(bool)
         B = self._get_B()
 
-        post_samples_gfa = gfa((post_samples_chat @ B).cpu().detach().numpy()).T # (N, S)
-        post_samples_gfa_error_flat = post_samples_gfa.std(-1) / post_samples_gfa.mean(-1) # (N)
+        post_samples_gfa = gfa(
+            (post_samples_chat @ B).cpu().detach().numpy()
+        ).T  # (N, S)
+        post_samples_gfa_error_flat = post_samples_gfa.std(-1) / post_samples_gfa.mean(
+            -1
+        )  # (N)
 
-        post_samples_gfa_uq = torch.zeros(mask_full.shape) # (X, Y, Z)
-        post_samples_gfa_uq[mask] = (
-            torch.from_numpy(post_samples_gfa_error_flat).float()
-        )
+        post_samples_gfa_uq = torch.zeros(mask_full.shape)  # (X, Y, Z)
+        post_samples_gfa_uq[mask] = torch.from_numpy(
+            post_samples_gfa_error_flat
+        ).float()
         # save nifiti
         if self.save_files:
             save_nif(
                 args,
                 post_samples_gfa_uq.cpu().detach().numpy(),
-                os.path.join(self.output_path, f"post_{npost_samps}_samples_gfa_uq.nii.gz"),
+                os.path.join(
+                    self.output_path, f"post_{npost_samps}_samples_gfa_uq.nii.gz"
+                ),
             )
-            
+
         # calculate correlation to ODF normalized L2 error
-        odf_errors = torch.load(os.path.join(self.output_path, f"odfs_l2_norm_error_values.pt"))
+        odf_errors = torch.load(
+            os.path.join(self.output_path, f"odfs_l2_norm_error_values.pt")
+        )
         odf_errors_img = torch.zeros(mask.shape)
         odf_errors_img[mask_full] = odf_errors
         odf_errors = odf_errors_img[mask]
-        
+
         corr = np.corrcoef(post_samples_gfa_uq[mask], odf_errors)[0][1]
         print(f"Correlation of GFA uncertainty to ODF normalized L2 error: {corr}")
 
@@ -347,7 +364,7 @@ class Evaluation:
         returns: float, torch.Tensor (F)
         """
         from image_similarity_measures.quality_metrics import fsim
-        
+
         # remove empty spaces
         gt_imgs = gt_imgs[50:240, 39:263, 0:178]
         pred_imgs = pred_imgs[50:240, 39:263, 0:178]
@@ -415,6 +432,10 @@ class Evaluation:
 
         if path is None:
             path = self.args.predictions_path
+        
+        if os.path.exists(path) is False:
+            print(f"ODFs path does not exist: {path}")
+            return None
 
         mask_full = nib.load(args.mask_file).get_fdata().astype(bool)  # X x Y x Z
 
@@ -446,10 +467,10 @@ class Evaluation:
 def main(args):
     eval = Evaluation(args)
 
-    # eval.get_gfa()
+    eval.get_gfa()
     # eval.get_dti()
     # eval.get_fsim()
-    eval.uq()
+    # eval.uq()
     # eval.get_odf_error()
     # TODO: Tractogrophy
 

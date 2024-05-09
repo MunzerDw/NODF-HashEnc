@@ -133,7 +133,7 @@ def BO_optimization(
         )
         parameters["objective"] = trial_loss
         parameters["trial_index"] = trial_index
-        
+
         print(f"======== trial {trial_index} completed ========================")
         print(f"parameters: {parameters}")
         print(f"objective: {trial_loss}")
@@ -146,6 +146,7 @@ def BO_optimization(
     best_parameters["trial_index"] = best_trial_index
     best_parameters["is_best"] = True
     save_trial_stats(best_parameters, output_path)
+
 
 def save_trial_stats(parameters: dict, output_path: str):
     """
