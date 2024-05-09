@@ -537,6 +537,8 @@ def get_args(cmd: bool = True):
 
     parser.add_argument("--use_baseline", action="store_true")
 
+    parser.add_argument("--odf_space", action="store_false", help="esimate Diffusion Signal Attenuation field if true, ODF field if false")
+
     if cmd:
         args = parser.parse_args()
     else:

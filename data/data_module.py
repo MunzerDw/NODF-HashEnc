@@ -31,9 +31,6 @@ import os
 import pickle
 
 
-ODFSPACE = True  # esimate ODF field or Diffusion Signal Attenuation field
-
-
 class DataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
@@ -66,7 +63,7 @@ class DataModule(pl.LightningDataModule):
         phi_grid = x_grid[:, 1]
         B, _, _ = real_sym_sh_basis(self.args.sh_order, phi_grid, theta_grid)
 
-        if ODFSPACE:
+        if self.args.odf_space:
             Phi_tensor = torch.from_numpy(Phi @ T_n_inv).float()
         else:
             Phi_tensor = torch.from_numpy(Phi).float()
