@@ -140,11 +140,8 @@ class DataModule(pl.LightningDataModule):
                 )  # X, Y, Z
 
                 # TODO: handle b-shells according to your data
-                signal_raw = (
-                    0.5 * signal_raw[..., b_bval_indices[:70]]
-                    + 0.5 * signal_raw[..., b_bval_indices[70:]]
-                )  # X, Y, Z, 70
-                signal_raw = signal_raw[:, :, :, : self.args.M]  # X, Y, Z, M
+                signal_raw = signal_raw[...,b_bval_indices]
+                # signal_raw = signal_raw[:, :, :, : self.args.M]  # X, Y, Z, M
 
                 signal_normalized = np.nan_to_num(
                     signal_raw / signal_b0_mean[..., None], posinf=0, neginf=0
