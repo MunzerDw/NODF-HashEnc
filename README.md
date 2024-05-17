@@ -109,8 +109,8 @@ It will output a tensor of the estimated ODFs spherical harmonic coefficients.
 
 | Model                                                                                            |Comment   
 |--------------------------------------------------------------------------------------------------|---------|
-|[HashEnc]([https://drive.google.com/file/d/1MpWNUOTNujwesz5ewNRj7fAe4p2UFsYA/view?usp=drive_link](https://drive.google.com/file/d/13OCsQqa_HTa9SBCtf3Ku7mejp2ERCaw6/view?usp=share_link)|HashEnc trained as above with default network configuration|
-|[SIREN]([https://drive.google.com/file/d/1HypX_L33UgpHp_Eo4WgKS2OjzajW6fJF/view?usp=sharing](https://drive.google.com/file/d/1BuyiQxY3lkYbev-rRMUzU64MZI-CYDA2/view?usp=share_link)|Large SIREN network trained as above|
+|[HashEnc](https://drive.google.com/file/d/13OCsQqa_HTa9SBCtf3Ku7mejp2ERCaw6/view?usp=share_link)|HashEnc trained as above with default network configuration|
+|[SIREN](https://drive.google.com/file/d/1BuyiQxY3lkYbev-rRMUzU64MZI-CYDA2/view?usp=share_link)|Large SIREN network trained as above|
 
 ## Visualization
 
