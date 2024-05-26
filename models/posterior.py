@@ -169,7 +169,7 @@ class FVRF(torch.nn.Module):
         #     post_samples_lst.append(post_samples.detach())
         # Post_samples = torch.stack(post_samples_lst, 0) # (N, K - 1, S)
         
-        XV_I = torch.kron(Xi_evals.T, Ik) # (N * (K - 1), r * (K - 1))
+        XV_I = torch.kron(Xi_evals.T, Ik) # (S, r * (K - 1))
         Post_samples = XV_I @ samples # (N * (K - 1), S)
         Post_samples = Post_samples.reshape(Xi_evals.shape[1], Ik.shape[0], Post_samples.shape[-1]) # (N, (K - 1), S)
         
