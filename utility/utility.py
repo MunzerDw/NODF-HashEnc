@@ -439,6 +439,12 @@ def get_args(cmd: bool = True):
     )
 
     parser.add_argument(
+        "--sigma2_e",
+        help="Variance of the measurement error for a given b0 image.",
+        type=float,
+    )
+
+    parser.add_argument(
         "--sigma2_w", help="Variance parameter for GP prior.", type=float, default=0.5
     )
 
