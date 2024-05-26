@@ -85,6 +85,14 @@ To train a large SIREN network:
     python train.py --experiment_name baseline --depth 10 --r 1024 --nu 1.5 --lambda_c 6.36e-06 --learning_rate 1e-6 --use_baseline
 ```
 
+To train HashEnc with Total Variation (TV) regularization:
+
+```shell
+    python train.py --use_tv
+```
+
+Use ```--lambda_tv <your value>``` to set the total variation regularization strength.
+
 ### MPPCA
 
 To denoise the dMRI image with MPPCA, use the following command:
