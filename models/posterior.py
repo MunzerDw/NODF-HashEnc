@@ -56,6 +56,7 @@ class FVRF(torch.nn.Module):
                 signal_raw[..., b0_bval_indices], mask=mask_full
             )
             print('Variance of the measurement error:', sigma2_e)
+            print(f"Use flag '--sigma2_e {sigma2_e}' to use this value in the future.")
         
         self.args = args
         self.Phi_tensor = Phi_tensor
