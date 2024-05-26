@@ -8,6 +8,11 @@ from models.nodf import NODF
 import copy
 import nibabel as nib
 from tqdm import tqdm
+from utility.utility import (
+    get_mask,
+    measurement_error_var_estimator,
+)
+from dipy.io.gradients import read_bvals_bvecs
 
 class FVRF(torch.nn.Module):
     """
@@ -27,7 +32,30 @@ class FVRF(torch.nn.Module):
         coords = data_module.dataset.coords
         signal = data_module.dataset.signal
         sigma2_w = args.sigma2_w
-        sigma2_e = data_module.sigma2_e
+        
+        # Measurement error variance
+        if args.sigma2_e:
+            sigma2_e = args.sigma2_e
+        else:
+            print(f"Estimating the variance of the measurement error for a given b0 image.")
+            # load bvals and bvecs
+            bvals, _ = read_bvals_bvecs(args.bval_file, args.bvec_file)
+
+            # get b0 and b-shel indices, and their b vectors
+            b0_bval_indices = np.where(bvals < args.bmarg)[0]
+            # load signal
+            img = nib.load(args.img_file)
+            signal_raw = img.get_fdata()  # X, Y, Z, b
+            
+            # to prevent division by very small numbers
+            signal_raw[signal_raw <= 1e-2] = 1e-2
+
+            # estimate measurement error variance
+            mask = get_mask(args)
+            sigma2_e = measurement_error_var_estimator(
+                signal_raw[..., b0_bval_indices], mask=mask
+            )
+            print('Variance of the measurement error:', sigma2_e)
         
         self.args = args
         self.Phi_tensor = Phi_tensor

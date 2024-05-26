@@ -122,23 +122,6 @@ class DataModule(pl.LightningDataModule):
                 signal_img = torch.zeros((*mask_full.shape, signal.shape[-1]))
                 signal_img[mask_full] = signal
                 signal = signal_img[mask]
-                
-                if self.args.sigma2_e:
-                    sigma2 = self.args.sigma2_e
-                else:
-                    print(f"Estimating the variance of the measurement error for a given b0 image.")
-                    # load signal
-                    img = nib.load(self.args.img_file)
-                    signal_raw = img.get_fdata()  # X, Y, Z, b
-                    
-                    # to prevent division by very small numbers
-                    signal_raw[signal_raw <= 1e-2] = 1e-2
-
-                    # estimate measurement error variance
-                    sigma2 = measurement_error_var_estimator(
-                        signal_raw[..., b0_bval_indices], mask=mask
-                    )
-                    print('Variance of the measurement error:', sigma2)
             else:
                 # load signal
                 img = nib.load(self.args.img_file)
@@ -146,16 +129,6 @@ class DataModule(pl.LightningDataModule):
                     
                 # to prevent division by very small numbers
                 signal_raw[signal_raw <= 1e-2] = 1e-2
-
-                # estimate measurement error variance
-                if self.args.sigma2_e:
-                    sigma2 = self.args.sigma2_e
-                else:
-                    print(f"Estimating the variance of the measurement error for a given b0 image.")
-                    sigma2 = measurement_error_var_estimator(
-                        signal_raw[..., b0_bval_indices], mask=mask
-                    )
-                    print('Variance of the measurement error:', sigma2)
 
                 # normalize signal by b0
                 signal_b0_mean = signal_raw[:, :, :, b0_bval_indices].mean(
@@ -179,7 +152,6 @@ class DataModule(pl.LightningDataModule):
 
                 torch.save(signal, signal_path)
 
-            self.sigma2_e = sigma2
             self.dataset = ObservationPoints(coords, signal)
 
         if stage == "predict":
