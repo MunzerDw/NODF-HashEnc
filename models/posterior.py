@@ -51,9 +51,9 @@ class FVRF(torch.nn.Module):
             signal_raw[signal_raw <= 1e-2] = 1e-2
 
             # estimate measurement error variance
-            mask = get_mask(args)
+            mask_full = nib.load(args.mask_file).get_fdata().astype(bool)  # X x Y x Z
             sigma2_e = measurement_error_var_estimator(
-                signal_raw[..., b0_bval_indices], mask=mask
+                signal_raw[..., b0_bval_indices], mask=mask_full
             )
             print('Variance of the measurement error:', sigma2_e)
         
