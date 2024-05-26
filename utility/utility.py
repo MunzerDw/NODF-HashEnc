@@ -543,7 +543,17 @@ def get_args(cmd: bool = True):
 
     parser.add_argument("--use_baseline", action="store_true")
 
-    parser.add_argument("--odf_space", action="store_false", help="esimate Diffusion Signal Attenuation field if true, ODF field if false")
+    parser.add_argument("--odf_space", action="store_false", help="Esimate Diffusion Signal Attenuation field if true, ODF field if false")
+
+    parser.add_argument("--use_tv", action="store_true", help="Set True to use total variation prior.")
+
+    parser.add_argument(
+        "--lambda_tv", help="Total variation prior strength.", type=float, default=0.4
+    )
+
+    parser.add_argument(
+        "--offset_tv", help="Offset for approximating total variation.", type=float, default=0.001
+    )
 
     if cmd:
         args = parser.parse_args()

@@ -95,13 +95,34 @@ class NODF(pl.LightningModule):
         returns: dict of torch.tensor losses
         """
         # forward pass
-        chat = self.forward(batch)
+        chat = self.forward(batch) # B x K
+        
+        # for total variation prior
+        chat_difference_vectors = None
+        if self.args.use_tv:
+            # evaluation on coordinates with offsets (for total variation penalty)
+            coords = batch['coords'].clone()
+            chat_difference_vectors = []
+            for i in range(coords.shape[-1]):
+                # evaluation on coordinates with offset
+                coords[:, i] = coords[:, i] + self.args.offset_tv
+                chat_positive_offset = self.forward({"coords": coords}) # B x K
+                coords[:, i] = coords[:, i] - (2 * self.args.offset_tv)
+                chat_negative_offset = self.forward({"coords": coords}) # B x K
+                
+                # reset coords
+                coords[:, i] = coords[:, i] + self.args.offset_tv
+                
+                # add chat difference for coord i
+                chat_difference_vectors.append(chat_positive_offset - chat_negative_offset) # B x K
+            chat_difference_vectors = torch.stack(chat_difference_vectors, dim=-1) # B x K x 3
 
         # loss
-        losses = self._neg_pmle(chat, batch["signal"])
+        losses = self._neg_pmle(chat, chat_difference_vectors, batch["signal"], batch['coords'])
         loss_weights = {
             "prior_energy": self.args.lambda_c,
             "l2_loss": 1.0,
+            "total_variation": self.args.lambda_tv,
         }
         total_loss = 0
         for loss_name, value in losses.items():
@@ -148,20 +169,26 @@ class NODF(pl.LightningModule):
         """
         return nn.Sequential(*(list(self.inr.net.children())[:-1]))
 
-    def _neg_pmle(self, chat: torch.Tensor, signal: torch.Tensor):
+    def _neg_pmle(self, chat: torch.Tensor, chat_difference_vectors: torch.Tensor, signal: torch.Tensor, coords: torch.Tensor):
         """
         chat: torch.tensor (N x K) of coefficient field evaluations
+        chat_difference_vectors: torch.Tensor (B x K x 3) difference of coefficient field evaluations w.r.t. neighborhood
         signal: torch.tensor (N x M) of (noisy + discretized) function samples
+        coords: torch.tensor (N x 3) of (noisy + discretized) input coordinates
 
         returns: dict of torch.tensor losses
         """
 
         l2_loss = self._neg_log_likelihood(chat, signal, self.Phi_tensor)
         prior_energy = self._integrated_roughness(chat, self.R_tensor)
+        total_variation = 0.0
+        if chat_difference_vectors != None:
+            total_variation = self._total_variation(chat_difference_vectors, coords, self.Phi_tensor)
 
         return {
             "l2_loss": l2_loss,
             "prior_energy": prior_energy,
+            "total_variation": total_variation
         }
 
     def _neg_log_likelihood(
@@ -187,6 +214,52 @@ class NODF(pl.LightningModule):
         """
         energy = torch.mean((chat**2) * torch.diag(R_tensor))
         return energy
+    
+    def _total_variation(self, chat_difference_vectors, coords, Phi_tensor):
+        """
+        Computes gradient of the model output with respect to the input coordinates.
+        
+        chat_difference_vectors: torch.Tensor (B x K x 3) difference of coefficient field evaluations w.r.t. neighborhood
+        coords: torch.Tensor (B x N x 3) of coordinates
+        Phi_tensor: torch.tensor (M x K) basis evaluation matrix
+        
+        returns:
+            gradients: torch.Tensor (B x M x 3) gradients
+        """
+        
+        chat_gradients = torch.norm(chat_difference_vectors, dim=-1)
+        chat_gradients = chat_gradients.mean()
+        
+        return chat_gradients
+        
+        # # get predicted signal
+        # yhat = chat @ Phi_tensor.T # (B x M)
+        
+        # grads = []
+        # for i in range(yhat.shape[-1]):
+        #     img_grad = yhat[:, i] # (B)
+        #     grad_outputs = torch.ones_like(img_grad) # (B)
+        #     # Compute gradient and laplacian
+        #     grad = torch.autograd.grad(
+        #         img_grad,
+        #         [coords],
+        #         grad_outputs=grad_outputs,
+        #         create_graph=True,
+        #     )[0][:, -3:] # (B x 3)
+        #     grads_x = grad[:, 0][..., None] # (B x 1)
+        #     grads_y = grad[:, 1][..., None] # (B x 1)
+        #     grads_z = grad[:, 2][..., None] # (B x 1)
+
+        #     grads_stacked = torch.stack((grads_x, grads_y, grads_z), dim=-1) # (B x 3)
+        #     grads.append(grads_stacked)
+
+        # grads = torch.cat(grads, dim=-2) # (B x M x 3)
+        
+        # grads = (grads**2)
+        
+        # total_variation = grads.mean()
+        
+        # return total_variation
 
     def count_parameters(self):
         """
