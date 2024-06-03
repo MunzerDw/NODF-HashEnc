@@ -32,10 +32,10 @@ def shls(args):
     bvals, bvecs = read_bvals_bvecs(args.bval_file, args.bvec_file)
     data_module = DataModule(args)
     data_module.setup("fit")
-    data = data_module.dataset.signal
+    signal = data_module.dataset.signal
 
     # filter bvecs by b values
-    M = data.shape[-1]
+    M = signal.shape[-1]
 
     bix = np.where(
         (bvals >= args.bval - args.bmarg) & (bvals <= args.bval + args.bmarg)
@@ -54,7 +54,7 @@ def shls(args):
     print("==> Running sf_to_sh ...")
     ODFtensor_shls = (
         sf_to_sh(
-            data,
+            signal,
             sphere,
             sh_order=args.sh_order,
             basis_type="descoteaux07",
