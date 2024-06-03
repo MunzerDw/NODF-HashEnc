@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
 import pytorch_lightning as pl
-from data.data_module import DataModule
+from data_module import DataModule
 from models.nodf import NODF
 import copy
 import nibabel as nib

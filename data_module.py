@@ -24,7 +24,7 @@ from dipy.reconst.shm import (
     real_sym_sh_basis,
     sph_harm_ind_list,
 )
-from data.dataset import ObservationPoints
+from dataset import ObservationPoints
 from dipy.data import get_sphere
 
 import os

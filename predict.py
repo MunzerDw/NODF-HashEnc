@@ -5,7 +5,7 @@ import numpy as np
 from models.nodf import NODF
 import os
 from utility.utility import get_args
-from data.data_module import DataModule
+from data_module import DataModule
 import numpy as np
 import torch
 from models.nodf import NODF

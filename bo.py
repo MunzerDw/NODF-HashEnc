@@ -5,8 +5,8 @@ import torch
 import numpy as np
 from ax.service.ax_client import AxClient
 import copy
-from data.data_module import DataModule
-from data.dataset import ObservationPoints
+from data_module import DataModule
+from dataset import ObservationPoints
 from models.nodf import NODF
 
 from utility.utility import get_phi_r_tensors, matern_spec_density

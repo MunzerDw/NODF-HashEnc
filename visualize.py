@@ -1,7 +1,7 @@
 import pickle
 import nibabel as nib
 import torch
-from data.data_module import DataModule
+from data_module import DataModule
 from utility.utility import cart2sphere, get_args, get_mask
 import numpy as np
 from models.nodf import NODF

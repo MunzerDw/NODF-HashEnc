@@ -1,7 +1,7 @@
 from utility.gpu_cache_clean_callback import GPUCacheCleanCallback
 from utility.time_logging_callback import TimeLoggingCallback
 from utility.utility import get_args, get_phi_r_tensors
-from data.data_module import DataModule
+from data_module import DataModule
 import numpy as np
 import torch
 from models.nodf import NODF
