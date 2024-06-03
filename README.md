@@ -47,7 +47,7 @@ You require the following files:
 - (optional) gt_gfa.nii.gz: (X, Y, Z) ground truth GFA - can be create using ```evaluate.py``` with the gt_odfs.pt as the predictions, if available
 - (optional) gt_dti.nii.gz: (X, Y, Z, 3) ground truth DTI - can be create using ```evaluate.py``` with the gt_odfs.pt as the predictions, if available
 
-Put these files under the <code>data</code> folder.
+Put these files under the <code>data</code> folder. If you have these files under a different folder, you can set the data folder: ```--data <path to your data folder>```
 
 ## Usage
 
