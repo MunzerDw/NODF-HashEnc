@@ -45,9 +45,7 @@ class Evaluation:
             )
 
         self.odfs = self._get_odfs()  # X x Y x Z x K
-        self.gt_odfs = self._get_odfs(
-            args.gt_odfs_path
-        )  # X x Y x Z x K
+        self.gt_odfs = self._get_odfs(args.gt_odfs_path)  # X x Y x Z x K
 
         input_path = args.predictions_path
         output_path = args.out_folder
@@ -62,11 +60,11 @@ class Evaluation:
             errors_median: torch.Tensor (1),
             errors: torch.Tensor (X x Y x Z)
         """
-        
+
         if self.gt_odfs is None:
             print("Can't calculate ODF error without ground truth ODFs")
             return
-        
+
         mask = get_mask(args)
 
         odfs_flat = self.odfs[mask].cpu().detach().numpy()
@@ -112,12 +110,13 @@ class Evaluation:
         odfs = self.odfs  # X x Y x Z x K
 
         B = self._get_B()  # K x P
-        
+
         if self.gt_odfs is not None:
             gt_odfs = self.gt_odfs  # X x Y x Z x K
 
             gt_signal_gfa_flat = gfa((gt_odfs[mask] @ B).cpu().detach().numpy())  # N
             signal_gfa_flat = gfa((odfs[mask] @ B).cpu().detach().numpy())  # N
+            signal_gfa_flat[np.isnan(signal_gfa_flat)] = 0.0
 
             gfa_diff = signal_gfa_flat - gt_signal_gfa_flat  # N
             gfa_abs_diff = np.absolute(gfa_diff)  # N
@@ -307,7 +306,9 @@ class Evaluation:
         # generate posterior samples
         npost_samps = 250
         start_time = time.time()
-        post_samples_chat = posterior.sample_posterior_pointwise(mask, npost_samps=npost_samps) # (S, N, K)
+        post_samples_chat = posterior.sample_posterior_pointwise(
+            mask, npost_samps=npost_samps
+        )  # (S, N, K)
         post_samples_chat = post_samples_chat.to(self.device)
         end_time = time.time()
         time_in_sec = round(end_time - start_time, 2)
@@ -432,7 +433,7 @@ class Evaluation:
 
         if path is None:
             path = self.args.predictions_path
-        
+
         if os.path.exists(path) is False:
             print(f"ODFs path does not exist: {path}")
             return None
