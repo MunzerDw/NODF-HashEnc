@@ -13,6 +13,7 @@ dependencies:
   - torchaudio=2.0.0
   - torchvision=0.15.0
   - nibabel=5.0.1
+  - jupyterlab
   - pip:
       - image-similarity-measures==0.3.6
       - ax-platform

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 from scipy.special import legendre, gamma
@@ -227,35 +228,11 @@ def get_args(cmd: bool = True):
     )
 
     parser.add_argument(
-        "--img_file",
+        "--data",
         action="store",
-        default="data/subjects/processedDWI_session1_subset01/dwi_all.nii.gz",
+        default="data",
         type=str,
-        help="Nifti file for diffusion image (nx X ny X nz x M)",
-    )
-
-    parser.add_argument(
-        "--mask_file",
-        action="store",
-        default="data/subjects/processedDWI_session1_subset01/flipped_b0_brain_mask.nii.gz",
-        type=str,
-        help="Nifti file for mask image (nx X ny X nz)",
-    )
-
-    parser.add_argument(
-        "--bval_file",
-        action="store",
-        default="data/subjects/processedDWI_session1_subset01/flip_x.bval",
-        type=str,
-        help="Text file b-values.",
-    )
-
-    parser.add_argument(
-        "--bvec_file",
-        action="store",
-        default="data/subjects/processedDWI_session1_subset01/flip_x.bvec",
-        type=str,
-        help="Text file b-vectors.",
+        help="Data folder containing signal.nii.gz, mask.nii.gz, bval.txt, and bvec.txt.",
     )
 
     parser.add_argument(
@@ -558,19 +535,11 @@ def get_args(cmd: bool = True):
     if cmd:
         args = parser.parse_args()
     else:
-        args = parser.parse_args(
-            [
-                "--out_folder",
-                "output",
-                "--img_file",
-                "data/signal.nii.gz",
-                "--mask_file",
-                "data/mask.nii.gz",
-                "--bval_file",
-                "data/bval.txt",
-                "--bvec_file",
-                "data/bvec.txt",
-            ]
-        )
+        args = parser.parse_args([])
+        
+    args.img_file = os.path.join(args.data, "signal.nii.gz")
+    args.mask_file = os.path.join(args.data, "mask.nii.gz")
+    args.bval_file = os.path.join(args.data, "bval.txt")
+    args.bvec_file = os.path.join(args.data, "bvec.txt")
 
     return args
