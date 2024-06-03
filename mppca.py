@@ -5,7 +5,6 @@ import torch
 
 import nibabel as nib
 import os
-from callback import *
 import pytorch_lightning as pl
 from dipy.denoise.localpca import mppca
 
@@ -27,20 +26,24 @@ def main(args):
 
     print("==> initializing data ...")
     data_module = DataModule(args)
-    img = nib.load(args.img_file)
-    Ynorm = data_module.Ynorm
+    data_module.setup("fit")
+    signal_flat = data_module.dataset.signal
+    mask_full = nib.load(args.mask_file).get_fdata().astype(bool)  # X x Y x Z
+    signal = torch.zeros((*mask_full.shape, signal_flat.shape[-1]))  # X x Y x Z x M
+    signal[mask_full] = signal_flat  # X x Y x Z x M
 
     print("==> running mppca ...")
-    Y_denoisy = mppca(Ynorm.detach().numpy(), patch_radius=2)
+    signal_denoised = mppca(signal.detach().numpy(), patch_radius=2)
 
     try:
-        result = Y_denoisy.detach().numpy()
+        signal_denoised = signal_denoised.detach().numpy()
     except:
-        result = Y_denoisy
+        signal_denoised = signal_denoised
 
-    Ynorm_nib = nib.Nifti1Image(result, img.affine)
-    path = os.path.join(output_path, f"Y_denoisy.nii.gz")
-    nib.save(Ynorm_nib, path)
+    img = nib.load(args.img_file)
+    signal_denoised_img = nib.Nifti1Image(signal_denoised, img.affine)
+    path = os.path.join(output_path, f"signal_denoised.nii.gz")
+    nib.save(signal_denoised_img, path)
 
 
 if __name__ == "__main__":
