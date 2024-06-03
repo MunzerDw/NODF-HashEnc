@@ -1,3 +1,7 @@
+import sys
+
+sys.path.insert(0, ".")
+
 import torch
 from dipy.reconst.shm import (
     sf_to_sh,

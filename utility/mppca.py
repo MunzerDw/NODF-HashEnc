@@ -1,3 +1,7 @@
+import sys
+
+sys.path.insert(0, ".")
+
 from utility.utility import get_args
 from data_module import DataModule
 import numpy as np
