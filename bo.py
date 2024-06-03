@@ -45,14 +45,20 @@ def resample_data(Obs, batch_size, train_prop=0.8):
     return dataloader_train, dataloader_test
 
 
-def _evaluate(
+def run_experiment(
     device,
     args,
     parameterization,
     algorithm,
-    dataloader_train,
-    dataloader_test,
+    dataset,
+    train_prop=0.8
 ):
+    # get data
+    dataloader_train, dataloader_test = resample_data(
+        dataset, args.batch_size, train_prop=train_prop
+    )
+    
+    # get hyper parameters
     ## obtain optimization parameters based on values in `parameterization' dict
     if "learning_rate" in parameterization:
         args.learning_rate = parameterization["learning_rate"]
@@ -66,9 +72,15 @@ def _evaluate(
         args.sigma0 = parameterization["sigma0"]
     if "sigma2_w" in parameterization:
         args.sigma2_w = parameterization["sigma2_w"]
+    if "base_resolution" in parameterization:
+        args.base_resolution = parameterization["base_resolution"]
+    if "n_levels" in parameterization:
+        args.n_levels = parameterization["n_levels"]
 
+    # get model
     field_model = NODF(args)
 
+    # train
     ## estimate parameters
     trainer = algorithm()
     trainer.fit(
@@ -76,6 +88,7 @@ def _evaluate(
         train_dataloaders=dataloader_train,
     )
 
+    # evaluate
     ## get mode predictions at test locations
     Phi_tensor = field_model.Phi_tensor.to(device)
     coords_test = dataloader_test.dataset.coords.to(device)
@@ -94,37 +107,37 @@ def _evaluate(
 def BO_optimization(
     device,
     args,
-    Obs,
+    dataset,
     algorithm,
     parameter_map,
     Nexperiments,
     output_path,
     experiment_name="hyper_param_opt_experiment",
-    train_prop=0.8,
 ):
     """
     Implements BO-based hyper-parameter optimization: Algorithm 3 from arXiv:2307.08138
     """
-    map_ax_client = AxClient()
-    map_ax_client.create_experiment(
-        name=experiment_name,
-        parameters=parameter_map,
-        minimize=True,
-    )
+    map_ax_client_path = os.path.join(output_path, 'map_ax_client.json')
+    if args.ckpt_path:
+        map_ax_client = AxClient.load_from_json_file(filepath=args.ckpt_path)
+        print("Loaded map_ax_client")
+    else:
+        map_ax_client = AxClient()
+        map_ax_client.create_experiment(
+            name=experiment_name,
+            parameters=parameter_map,
+            minimize=True,
+        )
     for _ in range(Nexperiments):
         parameters, trial_index = map_ax_client.get_next_trial()
-        dataloader_train, dataloader_test = resample_data(
-            Obs, args.batch_size, train_prop=train_prop
-        )
         map_ax_client.complete_trial(
             trial_index=trial_index,
-            raw_data=_evaluate(
+            raw_data=run_experiment(
                 device,
                 args,
                 parameters,
                 algorithm,
-                dataloader_train,
-                dataloader_test,
+                dataset
             ),
         )
 
@@ -139,7 +152,12 @@ def BO_optimization(
         print(f"objective: {trial_loss}")
         print("================================================================")
 
-        save_trial_stats(parameters, output_path)
+        date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+        trial_stats_path = os.path.join(output_path, f"results_{date}.txt")
+        save_trial_stats(parameters, trial_stats_path)
+        print(f"Saved parameters to {output_path}")
+        map_ax_client.save_to_json_file(filepath=map_ax_client_path)
+        print(f"Saved map_ax_client to {map_ax_client_path}")
 
     best_trial_index, best_parameters, metrics = map_ax_client.get_best_trial()
     best_parameters["objective"] = metrics[0]["objective"]
@@ -164,9 +182,8 @@ def main(args):
 
     # get output path
     date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-    output_path = os.path.join(args.out_folder, args.experiment_name, "bo")
+    output_path = os.path.join(args.out_folder, args.experiment_name, "bo", date)
     os.makedirs(output_path, exist_ok=True)
-    output_path = os.path.join(output_path, f"results_{date}.txt")
     print(f"=====> Output path: {output_path}")
 
     # run hyer-parameter optimization scheme to select prior roughness penalty strength
@@ -206,6 +223,16 @@ def main(args):
         #     "name": "sigma2_w",
         #     "type": "range",
         #     "bounds": [1e-5, 1e5],
+        # },
+        # {
+        #     "name": "n_levels",
+        #     "type": "range",
+        #     "bounds": [4, 32],
+        # },
+        # {
+        #     "name": "base_resolution",
+        #     "type": "range",
+        #     "bounds": [4, 64],
         # },
     ]
 
