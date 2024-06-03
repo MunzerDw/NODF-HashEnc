@@ -15,3 +15,4 @@ dependencies:
   - nibabel=5.0.1
   - pip:
       - image-similarity-measures==0.3.6
+      - ax-platform
