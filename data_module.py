@@ -114,7 +114,7 @@ class DataModule(pl.LightningDataModule):
         self.K = int((self.args.sh_order + 1) * (self.args.sh_order + 2) / 2)
 
         if stage == "fit":
-            signal_path = "data/train_signal.pt"
+            signal_path = os.path.join(self.args.data, "train_signal.pt")
             if os.path.exists(signal_path):
                 print(f"Using precomputed signal from {signal_path}")
                 signal = torch.load(signal_path)

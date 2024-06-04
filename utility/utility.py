@@ -232,7 +232,7 @@ def get_args(cmd: bool = True):
         action="store",
         default="data",
         type=str,
-        help="Data folder containing signal.nii.gz, mask.nii.gz, bval.txt, and bvec.txt.",
+        help="Path to data folder containing signal.nii.gz, mask.nii.gz, bval.txt, and bvec.txt.",
     )
 
     parser.add_argument(
