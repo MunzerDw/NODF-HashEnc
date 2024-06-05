@@ -82,7 +82,7 @@ To train HashEnc:
 To train a large SIREN network:
 
 ```shell
-    python train.py --experiment_name baseline --depth 10 --r 1024 --nu 1.5 --lambda_c 6.36e-06 --learning_rate 1e-6 --use_baseline
+    python train.py --experiment_name baseline --depth 10 --r 1024 --learning_rate 1e-6 --use_baseline
 ```
 
 To train HashEnc with Total Variation (TV) regularization:
