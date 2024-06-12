@@ -104,7 +104,7 @@ class HashEmbedder(nn.Module):
         voxel_min_vertex = torch.floor(xyz).int()
         voxel_indices = voxel_min_vertex.unsqueeze(1) + self.box_offsets
         hashed_voxel_indices = _hash(voxel_indices, self.log2_hashmap_size)
-
+        # hashed_voxel_indices = _to_1D(voxel_indices, resolution)
         return voxel_min_vertex, hashed_voxel_indices, xyz
 
 
@@ -123,3 +123,16 @@ def _hash(coords: torch.Tensor, log2_hashmap_size: int) -> torch.Tensor:
         torch.tensor((1 << log2_hashmap_size) - 1, device=xor_result.device)
         & xor_result
     )
+
+
+def _to_1D(coords: torch.Tensor, resolution: int) -> torch.Tensor:
+    """
+    coords: 3D indices of grid
+    resolution:  resolution of grid
+    """
+
+    x = coords[:, :, 0]
+    y = coords[:, :, 1]
+    z = coords[:, :, 2]
+
+    return (z * resolution * resolution) + (y * resolution) + x
