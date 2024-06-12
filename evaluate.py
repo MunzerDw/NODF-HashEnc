@@ -101,7 +101,7 @@ class Evaluation:
         """
         Get the general fractional anisotropy (GFA) of the ODFs
 
-        returns: torch.Tensor (X x Y x Z)
+        returns: nifti image (X x Y x Z)
         """
 
         mask = get_mask(self.args)  # X x Y x Z
@@ -138,15 +138,15 @@ class Evaluation:
 
         return gfa_img
 
-    def get_dti(self):
+    def get_signal(self):
         """
-        Get the Diffusion Tensor Imaging (DTI) of the ODFs
+        Get the reconstructed signal with b0 volume from the training image (average of b0 volumes).
+        Also returns bvecs and bvals with 0 bval and 0 bvec added.
 
         returns:
-            tensor_fa: torch.Tensor (X x Y x Z),
-            tensor_evecs: torch.Tensor (X x Y x Z x 3 x 3),
-            tensors_md: torch.Tensor (X x Y x Z),
-            tensor_rgb: torch.Tensor (X x Y x Z x 3)
+            signal_reconstructed: nifit image (X x Y x Z, M),
+            bvecs_signal_reconstructed: text file (M x 3),
+            bvals_signal_reconstructed: text file (M)
         """
 
         # loading bvals and bvecs
@@ -154,21 +154,110 @@ class Evaluation:
             self.args.bval_file,
             self.args.bvec_file,
         )
-        bix = np.where(
+        b0_bval_indices = np.where(bvals < self.args.bmarg)[0]
+        b_bval_indices = np.where(
             (bvals >= self.args.bval - self.args.bmarg)
             & (bvals <= self.args.bval + self.args.bmarg)
         )[0]
-        bvecs = bvecs[bix[: self.args.M]]
-        bvals = bvals[bix[: self.args.M]]
+        bvecs = bvecs[b_bval_indices[: self.args.M]]
+        bvals = bvals[b_bval_indices[: self.args.M]]
 
-        signal_recon = self._get_signal()
+        mask_full = nib.load(args.mask_file).get_fdata().astype(bool)
 
-        bo_data = torch.ones((*signal_recon.shape[:-1], 1))
+        # get reconstructed signal for M gradient directions from predicted ODFs
+        signal_recon = self._get_signal()  # X, Y, Z, M
+
+        signal_b0_mean_path = os.path.join(self.args.data, "train_signal_b0_average.pt")
+        if os.path.exists(signal_b0_mean_path):
+            print(f"==> Loading b0 volume average from {signal_b0_mean_path} ...")
+            signal_b0_mean_flat = torch.load(signal_b0_mean_path).numpy()[:, None]
+            signal_b0_mean = np.zeros(
+                (*self.odfs.shape[:-1], signal_b0_mean_flat.shape[-1])
+            )  # X x Y x Z x 1
+
+            signal_b0_mean[mask_full] = signal_b0_mean_flat
+        else:
+            print("==> Calculating b0 volume average ...")
+            # load signal
+            img = nib.load(self.args.img_file)
+            signal_raw = img.get_fdata()  # X, Y, Z, b
+
+            # to prevent division by very small numbers
+            signal_raw[signal_raw <= 1e-2] = 1e-2
+
+            # normalize signal by b0
+            signal_b0_mean = (
+                signal_raw[:, :, :, b0_bval_indices].mean(axis=3).unsqueeze(-1)
+            )  # X, Y, Z, 1
+
+            torch.save(
+                torch.from_numpy(signal_b0_mean[mask_full]).cpu().float(),
+                signal_b0_mean_path,
+            )
+            print(f"==> Saved b0 volume average to {signal_b0_mean_path}")
+
+        # adding b0 volume of 1s
+        signal_recon_expanded = signal_recon * signal_b0_mean
+        signal_recon_expanded = np.concatenate(
+            [signal_b0_mean, signal_recon_expanded], axis=-1
+        ).astype(
+            np.float32
+        )  # X, Y, Z, M + 1
+        print("==> Added b0 volume")
+
+        # adding 0 bval and 0 bvec
+        bvals = np.insert(bvals, 0, 0)
+        bvecs = np.insert(bvecs, obj=0, values=[0, 0, 0], axis=0)
+
+        if self.save_files:
+            save_nif(
+                args,
+                signal_recon_expanded,
+                os.path.join(self.output_path, f"signal_reconstructed.nii.gz"),
+            )
+            np.savetxt(
+                os.path.join(self.output_path, "bvecs_signal_reconstructed.txt"),
+                bvecs.T,
+                fmt="%.6f",
+            )
+            np.savetxt(
+                os.path.join(self.output_path, "bvals_signal_reconstructed.txt"),
+                bvals.reshape(1, -1),
+                fmt="%.6f",
+            )
+
+    def get_dti(self):
+        """
+        Get the Diffusion Tensor Imaging (DTI) of the ODFs
+
+        returns:
+            tensor_fa: nifti image (X x Y x Z),
+            tensor_evecs: nifti image (X x Y x Z x 3 x 3),
+            tensors_md: nifti image (X x Y x Z),
+            tensor_rgb: nifti image (X x Y x Z x 3)
+        """
+
+        # loading bvals and bvecs
+        bvals, bvecs = read_bvals_bvecs(
+            self.args.bval_file,
+            self.args.bvec_file,
+        )
+        b_bval_indices = np.where(
+            (bvals >= self.args.bval - self.args.bmarg)
+            & (bvals <= self.args.bval + self.args.bmarg)
+        )[0]
+        bvecs = bvecs[b_bval_indices[: self.args.M]]
+        bvals = bvals[b_bval_indices[: self.args.M]]
+
+        # get reconstructed signal for M gradient directions from predicted ODFs
+        signal_recon = self._get_signal()  # X, Y, Z, M
+
+        signal_b0_mean = torch.ones((*signal_recon.shape[:-1], 1))  # X, Y, Z, 1
 
         print("==> Adding b0 volume ...")
         # adding b0 volume of 1s
-        signal_recon_expanded = signal_recon * bo_data
-        data = np.concatenate([bo_data, signal_recon_expanded], axis=-1)
+        signal_recon_expanded = signal_recon * signal_b0_mean
+        data = np.concatenate([signal_b0_mean, signal_recon_expanded], axis=-1)
 
         # adding 0 bval and 0 bvec
         bvals = np.insert(bvals, 0, 0)
@@ -468,6 +557,7 @@ class Evaluation:
 def main(args):
     eval = Evaluation(args)
 
+    eval.get_signal()
     eval.get_gfa()
     eval.get_dti()
     eval.get_fsim()
