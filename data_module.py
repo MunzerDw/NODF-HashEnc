@@ -126,7 +126,7 @@ class DataModule(pl.LightningDataModule):
                 # load signal
                 img = nib.load(self.args.img_file)
                 signal_raw = img.get_fdata()  # X, Y, Z, b
-                    
+
                 # to prevent division by very small numbers
                 signal_raw[signal_raw <= 1e-2] = 1e-2
 
@@ -135,8 +135,18 @@ class DataModule(pl.LightningDataModule):
                     axis=3
                 )  # X, Y, Z
 
+                # save b0 average for later signal reconstruction
+                signal_b0_mean_path = os.path.join(
+                    self.args.data, "train_signal_b0_average.pt"
+                )
+
+                torch.save(
+                    torch.from_numpy(signal_b0_mean[mask_full]).cpu().float(),
+                    signal_b0_mean_path,
+                )
+
                 # select signals of b-values gradient directions
-                signal_raw = signal_raw[...,b_bval_indices]
+                signal_raw = signal_raw[..., b_bval_indices]
 
                 signal_normalized = np.nan_to_num(
                     signal_raw / signal_b0_mean[..., None], posinf=0, neginf=0
