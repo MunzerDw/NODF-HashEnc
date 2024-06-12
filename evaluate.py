@@ -166,6 +166,7 @@ class Evaluation:
 
         # get reconstructed signal for M gradient directions from predicted ODFs
         signal_recon = self._get_signal()  # X, Y, Z, M
+        signal_recon = signal_recon.clip(0, 1)  # X, Y, Z, M
 
         signal_b0_mean_path = os.path.join(self.args.data, "train_signal_b0_average.pt")
         if os.path.exists(signal_b0_mean_path):
