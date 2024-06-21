@@ -163,7 +163,8 @@ def BO_optimization(
     best_parameters["objective"] = metrics[0]["objective"]
     best_parameters["trial_index"] = best_trial_index
     best_parameters["is_best"] = True
-    save_trial_stats(best_parameters, output_path)
+    best_trial_stats_path = os.path.join(output_path, f"results_best.txt")
+    save_trial_stats(best_parameters, best_trial_stats_path)
 
 
 def save_trial_stats(parameters: dict, output_path: str):
