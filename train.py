@@ -70,6 +70,8 @@ def main(args: dict):
     print("==> initializing model ...")
     if args.ckpt_path:
         model = NODF.load_from_checkpoint(args.ckpt_path, map_location="cpu")
+        model.args.ckpt_path = args.ckpt_path
+        model.save_hyperparameters()
     else:
         model = NODF(args)
 
