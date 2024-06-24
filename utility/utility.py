@@ -343,7 +343,7 @@ def get_args(cmd: bool = True):
     parser.add_argument(
         "--num_epochs",
         action="store",
-        default=50000,
+        default=10000,
         type=int,
         help="Number of trainging epochs.",
     )
