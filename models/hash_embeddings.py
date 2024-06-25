@@ -2,6 +2,8 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 
+# adapted from: https://github.com/daviddmc/NeSVoR/blob/master/nesvor/inr/hash_grid_torch.py
+
 
 class HashEmbedder(nn.Module):
     def __init__(
@@ -26,8 +28,10 @@ class HashEmbedder(nn.Module):
 
         self.embeddings = nn.ModuleList(
             [
-                nn.Embedding(2**self.log2_hashmap_size, self.n_features_per_level)
-                for _ in range(n_levels)
+                nn.Embedding(
+                    self._get_number_of_embeddings(i), self.n_features_per_level
+                )
+                for i in range(n_levels)
             ]
         )
         # custom uniform initialization
@@ -38,6 +42,22 @@ class HashEmbedder(nn.Module):
             "box_offsets",
             torch.tensor([[[i, j, k] for i in [0, 1] for j in [0, 1] for k in [0, 1]]]),
         )
+
+    def _get_number_of_embeddings(self, level_idx: int) -> int:
+        """
+        level_idx: level index
+
+        returns: number of embeddings for given level. Max number is 2**self.log2_hashmap_size
+        """
+
+        max_size = 2**self.log2_hashmap_size
+
+        resolution = int(self.base_resolution * self.b**level_idx)
+        n_level_size = (
+            resolution + 2
+        ) ** 3  # see explanation below at 'def _to_1D(...)' why we do + 2
+
+        return min(max_size, n_level_size)
 
     def trilinear_interp(
         self,
@@ -103,36 +123,66 @@ class HashEmbedder(nn.Module):
         xyz = xyz * resolution
         voxel_min_vertex = torch.floor(xyz).int()
         voxel_indices = voxel_min_vertex.unsqueeze(1) + self.box_offsets
-        hashed_voxel_indices = _hash(voxel_indices, self.log2_hashmap_size)
-        # hashed_voxel_indices = _to_1D(voxel_indices, resolution)
+
+        max_size = 2**self.log2_hashmap_size
+        n_level_size = (resolution + 2) ** 3
+        if max_size > n_level_size:
+            hashed_voxel_indices = self._to_1D(voxel_indices, resolution)
+        else:
+            hashed_voxel_indices = self._hash(voxel_indices, self.log2_hashmap_size)
+
         return voxel_min_vertex, hashed_voxel_indices, xyz
 
+    def _hash(self, coords: torch.Tensor, log2_hashmap_size: int) -> torch.Tensor:
+        """
+        coords: this function can process upto 7 dim coordinates
+        log2T:  logarithm of T w.r.t 2
+        """
+        primes = [
+            1,
+            2654435761,
+            805459861,
+            3674653429,
+            2097192037,
+            1434869437,
+            2165219737,
+        ]
 
-def _hash(coords: torch.Tensor, log2_hashmap_size: int) -> torch.Tensor:
-    """
-    coords: this function can process upto 7 dim coordinates
-    log2T:  logarithm of T w.r.t 2
-    """
-    primes = [1, 2654435761, 805459861, 3674653429, 2097192037, 1434869437, 2165219737]
+        xor_result = torch.zeros_like(coords)[..., 0]
+        for i in range(coords.shape[-1]):
+            xor_result ^= coords[..., i] * primes[i]
 
-    xor_result = torch.zeros_like(coords)[..., 0]
-    for i in range(coords.shape[-1]):
-        xor_result ^= coords[..., i] * primes[i]
+        return (
+            torch.tensor((1 << log2_hashmap_size) - 1, device=xor_result.device)
+            & xor_result
+        )
 
-    return (
-        torch.tensor((1 << log2_hashmap_size) - 1, device=xor_result.device)
-        & xor_result
-    )
+    def _to_1D(self, coords: torch.Tensor, resolution: int) -> torch.Tensor:
+        """
+        coords: 3D indices of grid
+        resolution:  resolution of grid
+        """
 
+        """
+        Given grid resolution, for instance 2, our coordinate values usually span from 0 to 1 (inclusive, on x, y and z dimensions).
+        To convert this coordinate (which is between 0 and 1, inclusive) to a grid index,
+        we multiply the coordinate with the resolution (which is 2 in this example).
+        This means the maximum cell we can get is (2,2,2) when we multiply the coordinate (1,1,1) with resolution 2.
+        
+        If we want to convert the 3D cell index (2,2,2) into a 1D index (to retrieve the embedding),
+        we can use the formula (z * resolution * resolution) + (y * resolution) + x. The resolution here however must be 3,
+        since we are now dealing with a 3x3x3 grid. So, the 1D index is (2 * 3 * 3) + (2 * 3) + 2 = 26.
+        
+        If we use resolution 2, the 1D index would be (2 * 2 * 2) + (2 * 2) + 2 = 14. 
+        This is however wrong, as it represents the wrong cell in a 3x3x3 grid.
+        
+        Now, we do resolution + 2 because we have offsets of + 1, so we can get a cell at location (3,3,3).
+        
+        """
+        resolution = resolution + 2
 
-def _to_1D(coords: torch.Tensor, resolution: int) -> torch.Tensor:
-    """
-    coords: 3D indices of grid
-    resolution:  resolution of grid
-    """
+        x = coords[:, :, 0]
+        y = coords[:, :, 1]
+        z = coords[:, :, 2]
 
-    x = coords[:, :, 0]
-    y = coords[:, :, 1]
-    z = coords[:, :, 2]
-
-    return (z * resolution * resolution) + (y * resolution) + x
+        return (z * resolution * resolution) + (y * resolution) + x
