@@ -558,12 +558,12 @@ class Evaluation:
 def main(args):
     eval = Evaluation(args)
 
-    eval.get_signal()
+    # eval.get_signal()
     eval.get_gfa()
     eval.get_dti()
     eval.get_fsim()
     # eval.uq()
-    # eval.get_odf_error()
+    eval.get_odf_error()
     # TODO: Tractogrophy
 
 
