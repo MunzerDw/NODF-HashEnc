@@ -22,6 +22,18 @@ import os
 from dipy.data import get_sphere
 import nibabel as nib
 import numpy as np
+from dipy.data import get_sphere, HemiSphere
+from dipy.direction import (
+    DeterministicMaximumDirectionGetter,
+)
+from dipy.tracking.stopping_criterion import (
+    ThresholdStoppingCriterion,
+)
+from dipy.tracking import utils as track_utils
+from dipy.tracking.local_tracking import LocalTracking
+from nibabel.streamlines import LazyTractogram
+from dipy.tracking.streamlinespeed import length
+from dipy.io.utils import get_reference_info, create_tractogram_header
 
 
 class Evaluation:
@@ -445,6 +457,102 @@ class Evaluation:
 
         return post_samples_chat
 
+    def get_tractogrophy(self):
+        args = self.args
+        mask = get_mask(args)
+        # MODEL = "SS_CSD"
+        # if MODEL == "LFI":
+        #     fname = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/715041/processed_signals/hcp_predictions_final_V1/fodf_LFI_tournier07.nii.gz"
+        #     out_tractogram = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/715041/processed_signals/hcp_predictions_final_V1/LFI_FB_ode.tck"
+        # elif MODEL == "SS_CSD":
+        # fname = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/fodf_examples/fodfs_csd_bv3_tourn.nii.gz"
+        # out_tractogram = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/streamlines/csd_bv3_FB_ode.tck"
+
+        fname = os.path.join(
+            args.out_folder,
+            args.experiment_name,
+            "visualization/odfs_tournier07.nii.gz",
+        )
+        out_tractogram = os.path.join(
+            args.out_folder,
+            args.experiment_name,
+            "visualization/tractogrophy_csd_bv3_FB_ode.tck",
+        )
+
+        # elif MODEL == "MSMT_CSD":
+        #     pass
+
+        fodf_sh_img = nib.load(fname)
+        sh_basis = "tournier07"
+        theta = 30
+        fa_thresh = 0.2
+        step_size = 0.2
+        min_length = 10
+        max_length = 500
+
+        print("Getting FA image ... ")
+        nx, ny, nz = fodf_sh_img.shape[:-1]
+        fodf_sh_img = fodf_sh_img.get_fdata(dtype=np.float32)
+        fodf_sh_img[~mask] = 0
+
+        tracking_sphere = HemiSphere.from_sphere(get_sphere("repulsion724"))
+        dgklass = DeterministicMaximumDirectionGetter
+
+        print("Creating direction getter for " + sh_basis)
+        ## direction getter
+        dg = dgklass.from_shcoeff(
+            fodf_sh_img,
+            max_angle=theta,
+            sphere=tracking_sphere,
+            basis_type=sh_basis,
+        )
+        ## stopping criterion
+        fa_img_path = os.path.join(
+            args.out_folder,
+            args.experiment_name,
+            "evaluation/tensor_fa.nii.gz",
+        )
+        fa_img = nib.load(fa_img_path)
+        FA = fa_img.get_fdata(dtype=np.float32)
+        threshold_criterion = ThresholdStoppingCriterion(FA, fa_thresh)
+
+        ## seeds
+        seed_mask = np.zeros((nx, ny, nz))
+        seed_mask = FA >= 0.25
+        seeds = track_utils.seeds_from_mask(seed_mask, np.eye(4), density=1)
+        max_steps = int(max_length / step_size) + 1
+
+        print("Performing tractogrophy ...")
+        ## ODE curve evolition
+        streamline_generator = LocalTracking(
+            dg,
+            threshold_criterion,
+            seeds,
+            np.eye(4),
+            step_size=step_size,
+            maxlen=max_steps,
+            return_all=True,
+            random_seed=0,
+        )
+        ## filter out curve snips
+        filtered_streamlines = (
+            s for s in streamline_generator if min_length <= length(s) <= max_length
+        )
+        data_per_streamlines = {}
+        tractogram = LazyTractogram(
+            lambda: filtered_streamlines,
+            data_per_streamlines,
+            affine_to_rasmm=fa_img.affine,
+        )
+
+        ## save tractogram
+        filetype = nib.streamlines.detect_format(out_tractogram)
+        reference = get_reference_info(fa_img)
+        header = create_tractogram_header(filetype, *reference)
+
+        # Use generator to save the streamlines on-the-fly
+        nib.streamlines.save(tractogram, out_tractogram, header=header)
+
     def _get_fsim_score(self, pred_imgs, gt_imgs):
         """
         Get the FSIM score for the given images
@@ -559,12 +667,12 @@ def main(args):
     eval = Evaluation(args)
 
     # eval.get_signal()
+    # eval.get_tractogrophy()
     eval.get_gfa()
     eval.get_dti()
     eval.get_fsim()
     # eval.uq()
     eval.get_odf_error()
-    # TODO: Tractogrophy
 
 
 if __name__ == "__main__":
