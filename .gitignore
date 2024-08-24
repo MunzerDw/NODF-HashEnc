@@ -26,3 +26,4 @@ data/gt_odfs.pt
 data/gt_gfa.nii.gz
 data/gt_dti.nii.gz
 data/train_signal_b0_average.pt
+data/train_signal*
