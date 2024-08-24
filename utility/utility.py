@@ -357,11 +357,11 @@ def get_args(cmd: bool = True):
     )
 
     parser.add_argument(
-        "--r", action="store", default=64, type=int, help="Rank of spatial basis."
+        "--r", action="store", default=128, type=int, help="Rank of spatial basis."
     )
 
     parser.add_argument(
-        "--depth", action="store", default=2, type=int, help="Number of hidden layers."
+        "--depth", action="store", default=3, type=int, help="Number of hidden layers."
     )
 
     parser.add_argument(
@@ -463,7 +463,7 @@ def get_args(cmd: bool = True):
     parser.add_argument(
         "--n_levels",
         action="store",
-        default=14,
+        default=4,
         type=int,
         help="Number of resolution levels for hash encoding.",
     )
@@ -471,7 +471,7 @@ def get_args(cmd: bool = True):
     parser.add_argument(
         "--n_features_per_level",
         action="store",
-        default=2,
+        default=8,
         type=int,
         help="Number of features per embeddings vector.",
     )
@@ -487,7 +487,7 @@ def get_args(cmd: bool = True):
     parser.add_argument(
         "--base_resolution",
         action="store",
-        default=6,
+        default=80,
         type=int,
         help="Base resolution for hash encoding.",
     )
@@ -495,7 +495,7 @@ def get_args(cmd: bool = True):
     parser.add_argument(
         "--per_level_scale",
         action="store",
-        default=1.39,
+        default=1.13,
         type=float,
         help="Per level scal of resolution.",
     )
