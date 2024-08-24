@@ -73,7 +73,7 @@ This will directly use the ```pointwise_estimates.pt``` file under `output/<expe
 
 ### Training
 
-- Please note that the current hyperparameters in this repo (utility.py) are different from the original paper. They are better than the ones in the original paper. Please refer to the "New Experiments" section in the supplementary material in the Arxiv version of paper for more details.
+- Please note that the current hyperparameters in this repo (utility.py) are different from the original paper. They are better than the ones in the original paper. Please refer to the "New Experiments" section in the supplementary material in the Arxiv version of the paper for more details.
 
 To train HashEnc:
 
