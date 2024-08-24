@@ -174,6 +174,7 @@ class DataModule(pl.LightningDataModule):
             batch_size=self.args.batch_size,
             pin_memory=True,
             num_workers=self.args.num_workers,
+            drop_last=True,
         )
 
     def predict_dataloader(self):
