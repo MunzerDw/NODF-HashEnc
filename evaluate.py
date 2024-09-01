@@ -460,13 +460,6 @@ class Evaluation:
     def get_tractogrophy(self):
         args = self.args
         mask = get_mask(args)
-        # MODEL = "SS_CSD"
-        # if MODEL == "LFI":
-        #     fname = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/715041/processed_signals/hcp_predictions_final_V1/fodf_LFI_tournier07.nii.gz"
-        #     out_tractogram = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/715041/processed_signals/hcp_predictions_final_V1/LFI_FB_ode.tck"
-        # elif MODEL == "SS_CSD":
-        # fname = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/fodf_examples/fodfs_csd_bv3_tourn.nii.gz"
-        # out_tractogram = "/Users/willconsagra/Documents/Workspace/UQ_SBI/realdataanalysis/streamlines/csd_bv3_FB_ode.tck"
 
         fname = os.path.join(
             args.out_folder,
