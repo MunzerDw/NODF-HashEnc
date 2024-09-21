@@ -20,6 +20,8 @@ that HashEnc achieves a 10 % enhancement in image quality while requiring 3x les
 computational resources than current methods.
 
 From: [Technical University of Munich](https://www.tum.de/en/) and [Harvard Medical School](https://hms.harvard.edu/)
+- [Psychiatry Neuroimaging Laboratory, Brigham and Women's Hospital, Harvard Medical School](https://pnl.bwh.harvard.edu)
+- [AI in Medicine, Technical University of Munich](https://aim-lab.io)
 
 ## Setup 
 
@@ -160,5 +162,13 @@ If you find our work helpful, please kindly cite the original NODF paper:
 and ours:
 
 ```shell
-TODO
+@misc{dwedari2024estimatingneuralorientationdistribution,
+      title={Estimating Neural Orientation Distribution Fields on High Resolution Diffusion MRI Scans}, 
+      author={Mohammed Munzer Dwedari and William Consagra and Philip Müller and Özgün Turgut and Daniel Rueckert and Yogesh Rathi},
+      year={2024},
+      eprint={2409.09387},
+      archivePrefix={arXiv},
+      primaryClass={eess.IV},
+      url={https://arxiv.org/abs/2409.09387}, 
+}
 ```
