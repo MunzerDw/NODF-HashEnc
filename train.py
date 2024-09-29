@@ -17,7 +17,7 @@ def init_callbacks(output_path: str):
         mode="max",
         save_last=False,
         save_top_k=-1,
-        every_n_epochs=100,
+        every_n_epochs=500,
     )
     gpu_cache_clean_monitor = GPUCacheCleanCallback()
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
